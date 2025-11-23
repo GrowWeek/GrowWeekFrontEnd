@@ -1,17 +1,24 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { RotateCcw } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { logout } from '@/features/auth/api';
 
 export function Header() {
-  const handleReset = () => {
-    if (confirm('정말로 모든 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      // TODO: Implement server-side reset or clear local storage/cookies if needed
-      // For now, we just reload as we don't have a global reset API endpoint yet
-      // resetState(); 
-      localStorage.removeItem('grow-week-storage'); // Clear old local storage if any
-      window.location.reload();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    if (confirm('로그아웃 하시겠습니까?')) {
+      try {
+        await logout();
+      } catch (error) {
+        console.error('Logout failed:', error);
+      } finally {
+        localStorage.removeItem('accessToken');
+        router.push('/login');
+      }
     }
   };
 
@@ -31,11 +38,11 @@ export function Header() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={handleReset}
+            onClick={handleLogout}
             className="text-gray-500 hover:text-red-500"
           >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            초기화
+            <LogOut className="w-4 h-4 mr-2" />
+            로그아웃
           </Button>
 
           {/* User profile or settings placeholder */}

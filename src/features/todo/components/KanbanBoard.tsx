@@ -30,29 +30,11 @@ import { TaskCard } from './TaskCard';
 import { Task, TaskStatus, CreateTaskRequest } from '../types';
 import { useQueryClient } from '@tanstack/react-query';
 
-// Backend returns NOT_STARTED, frontend was using TODO.
-// Let's update statusMap to handle both or map them.
-// Ideally, we should align frontend types with backend.
-// Since we can't easily change backend right now, let's update frontend to match backend if possible,
-// OR map the backend status to frontend status.
-// Looking at the console log, the task has `status: "NOT_STARTED"`.
-// But our statusMap keys are `TODO`, `IN_PROGRESS`, `DONE`.
-// And `tasksByStatus` uses these keys to group tasks.
-// So "NOT_STARTED" tasks are falling into the `else` block (console.warn) and not being added to any column list.
-
 const statusMap: Record<string, { label: string; bg: string }> = {
   NOT_STARTED: { label: '진행 전', bg: 'bg-gray-100 dark:bg-gray-800' },
   IN_PROGRESS: { label: '진행 중', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  COMPLETED: { label: '완료', bg: 'bg-green-50 dark:bg-green-900/20' }, // Backend uses COMPLETED? Wait, let's check log again or types.
-  // Previous frontend code had: NOT_STARTED, IN_PROGRESS, COMPLETED.
-  // Swagger said: TODO, IN_PROGRESS, DONE (in our initial analysis, maybe I misread or backend changed?)
-  // The console log clearly shows: `status: "NOT_STARTED"`.
-  // So we should support NOT_STARTED.
+  COMPLETED: { label: '완료', bg: 'bg-green-50 dark:bg-green-900/20' }, 
 };
-
-// Update Types if needed, but for now let's fix the mapping in KanbanBoard.
-// We will map "NOT_STARTED" -> "TODO" internally or just use "NOT_STARTED".
-// Let's revert to using what the backend sends: NOT_STARTED, IN_PROGRESS, COMPLETED (likely).
 
 const dropAnimation: DropAnimation = {
   sideEffects: defaultDropAnimationSideEffects({
@@ -67,7 +49,7 @@ const dropAnimation: DropAnimation = {
 export function KanbanBoard() {
   // Data Fetching
   const { data: tasks = [], isLoading, isError } = useTasks();
-  const { createTask, updateTask, updateStatus } = useTaskMutations();
+  const { createTask, updateTask, updateStatus, toggleSensitive } = useTaskMutations();
   const queryClient = useQueryClient();
 
   // Local State
@@ -76,9 +58,9 @@ export function KanbanBoard() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   
   // Debugging
-  useEffect(() => {
-    console.log('KanbanBoard Tasks:', tasks);
-  }, [tasks]);
+  // useEffect(() => {
+  //   console.log('KanbanBoard Tasks:', tasks);
+  // }, [tasks]);
   
   const isLocked = false;
   
@@ -96,10 +78,6 @@ export function KanbanBoard() {
 
   // Group Tasks by Status
   const tasksByStatus = useMemo(() => {
-    // Initialize accumulators for ALL supported statuses
-    // Note: We map backend status to these keys.
-    // Backend: NOT_STARTED, IN_PROGRESS, COMPLETED (assumed based on NOT_STARTED seen)
-    // Let's use the backend keys as the source of truth for columns.
     const acc: Record<string, Task[]> = {
       NOT_STARTED: [],
       IN_PROGRESS: [],
@@ -112,17 +90,14 @@ export function KanbanBoard() {
     
     tasks.forEach((task) => {
         const status = task.status as string; 
-        // Check if we have a slot for this status
         if (acc[status]) {
             acc[status].push(task);
         } else if (status === 'TODO') { 
-            // Handle legacy or mixed types if any
             acc['NOT_STARTED'].push(task);
         } else if (status === 'DONE') {
             acc['COMPLETED'].push(task);
         } else {
             console.warn('Unknown task status:', status);
-            // Optional: push to default or ignore
         }
     });
     return acc;
@@ -136,7 +111,6 @@ export function KanbanBoard() {
       description: input.description,
       isSensitive: input.isSensitive || false,
       createdDate: new Date().toISOString().split('T')[0],
-      // Note: Backend creates task with default status (likely NOT_STARTED)
     }, {
       onSuccess: () => {
         setIsModalOpen(false);
@@ -147,6 +121,15 @@ export function KanbanBoard() {
 
   const handleUpdateTask = (input: CreateTaskRequest) => {
     if (editingTask && !isLocked) {
+      // 1. 민감 정보 토글 (값이 변경된 경우에만 호출)
+      if (input.isSensitive !== editingTask.isSensitive) {
+         toggleSensitive.mutate({
+             id: editingTask.id,
+             isSensitive: input.isSensitive
+         });
+      }
+      
+      // 2. 기본 정보 수정 (제목, 설명)
       updateTask.mutate({
         id: editingTask.id,
         data: {
@@ -156,6 +139,15 @@ export function KanbanBoard() {
       }, {
         onSuccess: () => setIsModalOpen(false)
       });
+      
+      // Note: 상태(Status) 변경은 드래그앤드롭이나 카드 내 액션으로 처리됨.
+      // 만약 모달에서도 상태 변경을 지원하려면 여기서 updateStatus 호출 필요.
+      if (input.status && input.status !== editingTask.status) {
+         updateStatus.mutate({
+            id: editingTask.id,
+            status: input.status
+         });
+      }
     }
   };
 
@@ -271,7 +263,6 @@ export function KanbanBoard() {
         onDragEnd={onDragEnd}
       >
         <div className="flex flex-col md:grid md:grid-cols-3 gap-6 flex-1 min-h-0 overflow-y-auto md:overflow-hidden pb-10 md:pb-0">
-            {/* Use keys from statusMap which matches Backend Statuses */}
             {(Object.keys(statusMap)).map((status) => (
                 <KanbanColumn
                     key={status}

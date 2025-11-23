@@ -32,6 +32,7 @@ export interface CreateTaskRequest {
   isSensitive: boolean;
   weekId?: number;
   createdDate: string;
+  status?: TaskStatus; // Optional for passing from modal to handler
 }
 
 export interface UpdateTaskRequest {

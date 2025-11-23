@@ -37,6 +37,13 @@ apiClient.interceptors.response.use(
 
     // 401 Unauthorized 처리
     if (error.response?.status === 401) {
+      
+      // Refresh Token 갱신 요청 자체가 실패한 경우 -> 즉시 로그아웃
+      if (originalRequest.url?.includes('/auth/refresh')) {
+        redirectToLogin();
+        return Promise.reject(error);
+      }
+
       // 이미 재시도한 요청이거나, 재시도 플래그가 있는데 또 실패한 경우
       if (originalRequest._retry) {
         redirectToLogin();
@@ -47,14 +54,9 @@ apiClient.interceptors.response.use(
       
       try {
         // Refresh Token으로 갱신 시도
-        const refreshResponse = await apiClient.post('/api/v1/auth/refresh');
+        await apiClient.post('/api/v1/auth/refresh');
         
-        // 만약 Refresh API가 새로운 Access Token을 반환한다면 저장 (백엔드 명세 확인 필요)
-        // 여기서는 `ApiResponseUnit`이므로 토큰이 없을 수 있음. 
-        // 하지만 만약 토큰이 없다면 재시도해도 실패할 확률이 높음 (Authorization 헤더가 그대로이므로).
-        // 혹시 백엔드가 쿠키에 AccessToken을 구워주는 방식이라면 재시도 시 성공할 수 있음.
-        
-        // 재시도
+        // 갱신 성공 후 원래 요청 재시도
         return apiClient(originalRequest);
       } catch (refreshError) {
         // 갱신 실패 시 즉시 로그인 페이지로

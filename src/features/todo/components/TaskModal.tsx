@@ -46,9 +46,10 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
     onSubmit({
       title,
       description,
-      // status: status, // Removed as it's not in CreateTaskRequest
+      // status: status, // Optional, currently handled via separate mutation in KanbanBoard if needed
+      status, 
       isSensitive,
-      createdDate: new Date().toISOString().split('T')[0] // Default for now
+      createdDate: new Date().toISOString().split('T')[0] 
     });
     onClose();
   };
@@ -117,7 +118,7 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
           <Checkbox 
             id="sensitive" 
             checked={isSensitive}
-            onChange={(e) => setIsSensitive(e.target.checked)}
+            onCheckedChange={(checked) => setIsSensitive(checked === true)}
             disabled={isReadOnly}
           />
           <div className="grid gap-1.5 leading-none">

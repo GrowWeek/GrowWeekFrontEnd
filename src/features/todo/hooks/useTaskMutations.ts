@@ -27,6 +27,14 @@ export const useTaskMutations = () => {
     },
   });
 
+  const toggleSensitive = useMutation({
+    mutationFn: ({ id, isSensitive }: { id: number; isSensitive: boolean }) =>
+      apiClient.patch<ApiResponse<Task>>(`/api/v1/tasks/${id}/sensitive`, { isSensitive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
   const deleteTask = useMutation({
     mutationFn: (id: number) => apiClient.delete<ApiResponse<void>>(`/api/v1/tasks/${id}`),
     onSuccess: () => {
@@ -67,6 +75,7 @@ export const useTaskMutations = () => {
   return { 
     createTask, 
     updateTask, 
+    toggleSensitive,
     deleteTask, 
     updateStatus 
   };
