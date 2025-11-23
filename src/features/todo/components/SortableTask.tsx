@@ -2,15 +2,16 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
-import { Task } from '../types';
+import { Task, TaskStatus } from '../types';
 
 interface SortableTaskProps {
   task: Task;
   onClick: (task: Task) => void;
+  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
   isReadOnly: boolean;
 }
 
-export function SortableTask({ task, onClick, isReadOnly }: SortableTaskProps) {
+export function SortableTask({ task, onClick, onStatusChange, isReadOnly }: SortableTaskProps) {
   const {
     attributes,
     listeners,
@@ -52,9 +53,9 @@ export function SortableTask({ task, onClick, isReadOnly }: SortableTaskProps) {
       <TaskCard 
         task={task} 
         onClick={onClick}
+        onStatusChange={onStatusChange}
         isReadOnly={isReadOnly}
       />
     </div>
   );
 }
-

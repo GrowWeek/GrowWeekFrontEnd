@@ -106,9 +106,10 @@ interface TodoState {
 *   [x] 완료된 주의 할일 수정 시도 시 "수정 불가" 알림 및 비활성화 처리 (`TaskModal`, `KanbanBoard`)
 
 ### Phase 4: UI/UX 고도화
-*   [x] Drag & Drop (dnd-kit 등 라이브러리 검토)
-*   [ ] 민감 정보 시각적 차별화 (배경색/아이콘)
-*   [ ] 반응형 디테일 수정
+*   [x] Drag & Drop (dnd-kit 적용)
+*   [x] 모바일 반응형 레이아웃 개선 (세로 배치 및 스크롤)
+*   [x] 민감 정보 시각적 차별화 (배경색/아이콘)
+*   [x] 반응형 디테일 수정
 
 ## 5. Mocking Strategy
 실제 백엔드가 없으므로, 브라우저의 `localStorage`를 사용하여 데이터를 영구 저장(Persistence)합니다. `zustand/middleware`의 `persist`를 활용하면 쉽게 구현 가능합니다.

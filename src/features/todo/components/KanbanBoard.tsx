@@ -6,7 +6,8 @@ import {
   DragOverlay, 
   closestCorners, 
   KeyboardSensor, 
-  PointerSensor, 
+  MouseSensor,
+  TouchSensor,
   useSensor, 
   useSensors, 
   DragStartEvent, 
@@ -15,7 +16,7 @@ import {
   defaultDropAnimationSideEffects,
   DropAnimation
 } from '@dnd-kit/core';
-import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { createPortal } from 'react-dom';
 
 import { Badge } from "@/components/ui/Badge";
@@ -55,10 +56,11 @@ export function KanbanBoard() {
 
   const isLocked = isWeekLocked(currentWeekId);
   
+  // Use different sensors for mouse and touch to improve mobile UX (scroll vs drag)
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 5, // 5px movement required to start drag
+        distance: 10, // 10px movement required to start drag
       },
     }),
     useSensor(KeyboardSensor, {
@@ -129,37 +131,22 @@ export function KanbanBoard() {
 
     if (!isActiveTask) return;
 
-    // Helper to find task index in the global tasks array
     const activeTaskIndex = tasks.findIndex((t) => t.id === activeId);
     if (activeTaskIndex === -1) return;
 
     const activeTask = tasks[activeTaskIndex];
 
-    // Scenario 1: Dragging over another task
     if (isOverTask) {
        const overTaskIndex = tasks.findIndex((t) => t.id === overId);
        const overTask = tasks[overTaskIndex];
        
        if (activeTask.status !== overTask.status) {
-         // Moving to different column over a task
          const newTasks = [...tasks];
          newTasks[activeTaskIndex] = { ...newTasks[activeTaskIndex], status: overTask.status };
-         
-         // Basic reordering logic if needed (optional for MVP, just status change is enough)
-         // For true reordering, we would use arrayMove here on the subset, but since tasks is flat, 
-         // we just update status and let it append or we need complex logic.
-         // For now, let's just update status.
          setTasks(newTasks);
-       } else {
-         // Same column reordering
-         // We can use arrayMove here because we know indices in global array
-         // But global array order might not match visual order if filtered.
-         // So real reordering requires finding the visual indices and swapping in global array.
-         // Skipping complex reordering for MVP. Just visual sortable context handles it temporarily.
        }
     }
 
-    // Scenario 2: Dragging over a column (empty space)
     if (isOverColumn) {
        const overStatus = over.data.current?.status as TaskStatus;
        if (activeTask.status !== overStatus) {
@@ -183,7 +170,6 @@ export function KanbanBoard() {
     const activeTask = tasks.find(t => t.id === activeId);
     if (!activeTask) return;
 
-    // Check if we dropped on a column or a task
     const isOverColumn = over.data.current?.type === 'Column';
     const isOverTask = over.data.current?.type === 'Task';
 
@@ -196,16 +182,18 @@ export function KanbanBoard() {
         if (overTask) newStatus = overTask.status;
     }
 
-    // Persist status change
     if (activeTask.status !== newStatus) {
         updateTask(activeId, { status: newStatus });
     }
-    
-    // If we wanted to persist order, we would do it here.
+  };
+
+  const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    if (isLocked) return;
+    updateTask(taskId, { status: newStatus });
   };
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col p-4 md:p-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold flex items-center gap-2">
             {isLocked && <Badge variant="secondary" className="gap-1"><Lock className="w-3 h-3"/> Read Only</Badge>}
@@ -223,7 +211,8 @@ export function KanbanBoard() {
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
       >
-        <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
+        {/* Responsive Layout: Flex Col (Mobile, scrollable) vs Grid (Desktop, fixed) */}
+        <div className="flex flex-col md:grid md:grid-cols-3 gap-6 flex-1 min-h-0 overflow-y-auto md:overflow-hidden pb-10 md:pb-0">
             {(Object.keys(statusMap) as TaskStatus[]).map((status) => (
                 <KanbanColumn
                     key={status}
@@ -232,6 +221,7 @@ export function KanbanBoard() {
                     bgClass={statusMap[status].bg}
                     tasks={tasksByStatus[status]}
                     onTaskClick={openEditModal}
+                    onTaskStatusChange={handleTaskStatusChange}
                     isReadOnly={isLocked}
                 />
             ))}
