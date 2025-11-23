@@ -26,6 +26,7 @@ interface TodoState {
   
   // Debug Actions
   resetState: () => void;
+  setTasks: (tasks: Task[]) => void;
 }
 
 export const useTodoStore = create<TodoState>()(
@@ -156,7 +157,9 @@ export const useTodoStore = create<TodoState>()(
         localStorage.removeItem('grow-week-storage');
         // Re-initialize week immediately after reset
         get().initialize();
-      }
+      },
+      
+      setTasks: (tasks) => set({ tasks }),
     }),
     {
       name: 'grow-week-storage',

@@ -106,7 +106,7 @@ interface TodoState {
 *   [x] 완료된 주의 할일 수정 시도 시 "수정 불가" 알림 및 비활성화 처리 (`TaskModal`, `KanbanBoard`)
 
 ### Phase 4: UI/UX 고도화
-*   [ ] Drag & Drop (dnd-kit 등 라이브러리 검토)
+*   [x] Drag & Drop (dnd-kit 등 라이브러리 검토)
 *   [ ] 민감 정보 시각적 차별화 (배경색/아이콘)
 *   [ ] 반응형 디테일 수정
 

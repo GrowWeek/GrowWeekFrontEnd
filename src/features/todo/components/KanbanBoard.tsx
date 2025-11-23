@@ -1,14 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card } from "@/components/ui/Card";
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  DndContext, 
+  DragOverlay, 
+  closestCorners, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors, 
+  DragStartEvent, 
+  DragOverEvent, 
+  DragEndEvent,
+  defaultDropAnimationSideEffects,
+  DropAnimation
+} from '@dnd-kit/core';
+import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { createPortal } from 'react-dom';
+
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Plus, Lock, History } from "lucide-react";
+import { Plus, Lock } from "lucide-react";
 import { useTodoStore } from '../hooks/useTodoStore';
 import { TaskModal } from './TaskModal';
+import { KanbanColumn } from './KanbanColumn';
+import { TaskCard } from './TaskCard';
 import { Task, TaskStatus, CreateTaskInput } from '../types';
-import { cn } from '@/lib/utils';
 
 const statusMap = {
   NOT_STARTED: { label: '진행 전', bg: 'bg-gray-100 dark:bg-gray-800' },
@@ -16,18 +33,52 @@ const statusMap = {
   COMPLETED: { label: '완료', bg: 'bg-green-50 dark:bg-green-900/20' },
 };
 
+const dropAnimation: DropAnimation = {
+  sideEffects: defaultDropAnimationSideEffects({
+    styles: {
+      active: {
+        opacity: '0.5',
+      },
+    },
+  }),
+};
+
 export function KanbanBoard() {
-  const { tasks, currentWeekId, createTask, updateTask, initialize, isWeekLocked } = useTodoStore();
+  const { tasks, currentWeekId, createTask, updateTask, initialize, isWeekLocked, setTasks } = useTodoStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+  const [activeTask, setActiveTask] = useState<Task | null>(null);
 
-  // Initialize store (create current week if needed)
   useEffect(() => {
     initialize();
   }, [initialize]);
 
   const isLocked = isWeekLocked(currentWeekId);
-  const getTodosByStatus = (status: TaskStatus) => tasks.filter(t => t.status === status);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // 5px movement required to start drag
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const tasksByStatus = useMemo(() => {
+    const acc: Record<TaskStatus, Task[]> = {
+      NOT_STARTED: [],
+      IN_PROGRESS: [],
+      COMPLETED: [],
+    };
+    tasks.forEach((task) => {
+        if (acc[task.status]) {
+            acc[task.status].push(task);
+        }
+    });
+    return acc;
+  }, [tasks]);
 
   const handleCreateTask = (input: CreateTaskInput) => {
     if (isLocked) return;
@@ -54,6 +105,105 @@ export function KanbanBoard() {
     setIsModalOpen(true);
   };
 
+  // DND Handlers
+  const onDragStart = (event: DragStartEvent) => {
+    if (isLocked) return;
+    const { active } = event;
+    const task = tasks.find((t) => t.id === active.id);
+    if (task) setActiveTask(task);
+  };
+
+  const onDragOver = (event: DragOverEvent) => {
+    if (isLocked) return;
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    if (activeId === overId) return;
+
+    const isActiveTask = active.data.current?.type === 'Task';
+    const isOverTask = over.data.current?.type === 'Task';
+    const isOverColumn = over.data.current?.type === 'Column';
+
+    if (!isActiveTask) return;
+
+    // Helper to find task index in the global tasks array
+    const activeTaskIndex = tasks.findIndex((t) => t.id === activeId);
+    if (activeTaskIndex === -1) return;
+
+    const activeTask = tasks[activeTaskIndex];
+
+    // Scenario 1: Dragging over another task
+    if (isOverTask) {
+       const overTaskIndex = tasks.findIndex((t) => t.id === overId);
+       const overTask = tasks[overTaskIndex];
+       
+       if (activeTask.status !== overTask.status) {
+         // Moving to different column over a task
+         const newTasks = [...tasks];
+         newTasks[activeTaskIndex] = { ...newTasks[activeTaskIndex], status: overTask.status };
+         
+         // Basic reordering logic if needed (optional for MVP, just status change is enough)
+         // For true reordering, we would use arrayMove here on the subset, but since tasks is flat, 
+         // we just update status and let it append or we need complex logic.
+         // For now, let's just update status.
+         setTasks(newTasks);
+       } else {
+         // Same column reordering
+         // We can use arrayMove here because we know indices in global array
+         // But global array order might not match visual order if filtered.
+         // So real reordering requires finding the visual indices and swapping in global array.
+         // Skipping complex reordering for MVP. Just visual sortable context handles it temporarily.
+       }
+    }
+
+    // Scenario 2: Dragging over a column (empty space)
+    if (isOverColumn) {
+       const overStatus = over.data.current?.status as TaskStatus;
+       if (activeTask.status !== overStatus) {
+          const newTasks = [...tasks];
+          newTasks[activeTaskIndex] = { ...newTasks[activeTaskIndex], status: overStatus };
+          setTasks(newTasks);
+       }
+    }
+  };
+
+  const onDragEnd = (event: DragEndEvent) => {
+    setActiveTask(null);
+    if (isLocked) return;
+
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    
+    const activeTask = tasks.find(t => t.id === activeId);
+    if (!activeTask) return;
+
+    // Check if we dropped on a column or a task
+    const isOverColumn = over.data.current?.type === 'Column';
+    const isOverTask = over.data.current?.type === 'Task';
+
+    let newStatus = activeTask.status;
+
+    if (isOverColumn) {
+        newStatus = over.data.current?.status as TaskStatus;
+    } else if (isOverTask) {
+        const overTask = tasks.find(t => t.id === overId);
+        if (overTask) newStatus = overTask.status;
+    }
+
+    // Persist status change
+    if (activeTask.status !== newStatus) {
+        updateTask(activeId, { status: newStatus });
+    }
+    
+    // If we wanted to persist order, we would do it here.
+  };
+
   return (
     <div className="h-full flex flex-col p-6">
       <div className="flex justify-between items-center mb-4">
@@ -66,51 +216,36 @@ export function KanbanBoard() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
-        {(Object.keys(statusMap) as TaskStatus[]).map((status) => (
-          <div 
-            key={status} 
-            className={`rounded-xl p-4 border border-gray-200 dark:border-gray-800 ${statusMap[status].bg} flex flex-col h-full`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-700 dark:text-gray-300">
-                {statusMap[status].label}
-              </h3>
-              <Badge variant="secondary" className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                {getTodosByStatus(status).length}
-              </Badge>
-            </div>
-            
-            <div className="space-y-3 overflow-y-auto flex-1 pr-2 custom-scrollbar">
-              {getTodosByStatus(status).map(todo => (
-                <Card 
-                  key={todo.id} 
-                  onClick={() => openEditModal(todo)}
-                  className={cn(
-                    "p-4 cursor-pointer hover:shadow-md transition-all bg-white dark:bg-gray-800 group relative border-l-4",
-                    todo.isSensitive ? "border-l-orange-400" : "border-l-transparent",
-                    isLocked && "opacity-80 hover:shadow-sm cursor-default"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-normal line-clamp-2">{todo.title}</p>
-                    <div className="flex flex-col gap-1 shrink-0">
-                        {todo.isSensitive && (
-                            <Lock className="w-3 h-3 text-orange-400" />
-                        )}
-                         {todo.isCarriedOver && (
-                            <History className="w-3 h-3 text-blue-400" />
-                        )}
-                    </div>
-                  </div>
-                  {/* Hover effect hint only if clickable/editable (or just always show hover for consistency but maybe different cursor) */}
-                  <div className="absolute inset-0 rounded-xl ring-2 ring-blue-500 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity" />
-                </Card>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragOver={onDragOver}
+        onDragEnd={onDragEnd}
+      >
+        <div className="grid grid-cols-3 gap-6 flex-1 min-h-0">
+            {(Object.keys(statusMap) as TaskStatus[]).map((status) => (
+                <KanbanColumn
+                    key={status}
+                    status={status}
+                    title={statusMap[status].label}
+                    bgClass={statusMap[status].bg}
+                    tasks={tasksByStatus[status]}
+                    onTaskClick={openEditModal}
+                    isReadOnly={isLocked}
+                />
+            ))}
+        </div>
+
+        {createPortal(
+            <DragOverlay dropAnimation={dropAnimation}>
+                {activeTask && (
+                    <TaskCard task={activeTask} />
+                )}
+            </DragOverlay>,
+            document.body
+        )}
+      </DndContext>
 
       <TaskModal 
         isOpen={isModalOpen} 
