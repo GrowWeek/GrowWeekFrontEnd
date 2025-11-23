@@ -11,7 +11,7 @@ interface KanbanColumnProps {
   tasks: Task[];
   bgClass: string;
   onTaskClick: (task: Task) => void;
-  onTaskStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onTaskStatusChange: (taskId: number, newStatus: TaskStatus) => void;
   isReadOnly: boolean;
 }
 

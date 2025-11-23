@@ -1,31 +1,55 @@
-export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 
 export interface Task {
-  id: string;
+  id: number;                // 백엔드 Long -> number
+  userId: number;
+  weekId: number;            // 백엔드 Long -> number
   title: string;
   description?: string;
   status: TaskStatus;
-  isSensitive: boolean;      // 민감정보 여부
-  weekId: string;            // 소속 주차 (YYYY-MM-WeekN 등)
-  originalTaskId?: string;   // 이월된 원본 ID
-  isCarriedOver: boolean;    // 이월 여부
-  createdAt: string;         // ISO Date String
-  updatedAt: string;         // ISO Date String
-  lockedAt?: string;         // 회고 완료 시 잠금 시간
+  isSensitive: boolean;
+  originalTaskId?: number;   // 이월된 원본 ID
+  isCarriedOver: boolean;
+  isDeleted: boolean;
+  isLocked: boolean;
+  lockedAt?: string;         // ISO Date Time
+  createdAt: string;         // ISO Date Time
+  updatedAt: string;         // ISO Date Time
 }
 
 export interface Week {
-  id: string;                // 식별자 (예: "2024-W47")
-  startDate: string;         // 주 시작일 (월)
-  endDate: string;           // 주 종료일 (일)
+  id: number;                // 백엔드 Week ID
+  weekNumber: number;        // 몇 주차인지 (예: 47)
+  startDate: string;         // YYYY-MM-DD
+  endDate: string;           // YYYY-MM-DD
   isReviewCompleted: boolean;
-  reviewCompletedAt?: string;
 }
 
-export interface CreateTaskInput {
+export interface CreateTaskRequest {
   title: string;
   description?: string;
-  status?: TaskStatus;
-  isSensitive?: boolean;
+  isSensitive: boolean;
+  weekId?: number;           // 선택적
+  createdDate: string;       // YYYY-MM-DD
 }
 
+export interface UpdateTaskRequest {
+  title?: string;
+  description?: string;
+}
+
+export interface ChangeTaskStatusRequest {
+  status: TaskStatus;
+}
+
+// API 공통 응답 타입
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: Record<string, object>;
+  };
+  timestamp: string;
+}

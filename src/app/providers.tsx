@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useState, type ReactNode } from 'react';
+import { AuthProvider } from '@/features/auth/components/AuthProvider';
 
 export default function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -10,9 +11,12 @@ export default function Providers({ children }: { children: ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // With SSR, we usually want to set some default staleTime
-            // above 0 to avoid refetching immediately on the client
             staleTime: 60 * 1000,
+            // 401 발생 시 재시도하지 않도록 설정 (무한 요청 방지)
+            retry: (failureCount, error: any) => {
+               if (error.response?.status === 401) return false;
+               return failureCount < 3;
+            }
           },
         },
       })
@@ -20,9 +24,10 @@ export default function Providers({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      <AuthProvider>
+        {children}
+      </AuthProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }
-

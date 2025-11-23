@@ -5,13 +5,13 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Checkbox } from "@/components/ui/Checkbox";
-import { CreateTaskInput, Task, TaskStatus } from '../types';
+import { CreateTaskRequest, Task, TaskStatus } from '../types';
 import { Lock } from 'lucide-react';
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (task: CreateTaskInput) => void;
+  onSubmit: (task: CreateTaskRequest) => void;
   initialData?: Task;
   mode: 'create' | 'edit';
   isReadOnly?: boolean;
@@ -20,7 +20,7 @@ interface TaskModalProps {
 export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isReadOnly = false }: TaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<TaskStatus>('NOT_STARTED');
+  const [status, setStatus] = useState<TaskStatus>('TODO');
   const [isSensitive, setIsSensitive] = useState(false);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
       } else {
         setTitle('');
         setDescription('');
-        setStatus('NOT_STARTED');
+        setStatus('TODO');
         setIsSensitive(false);
       }
     }
@@ -46,8 +46,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
     onSubmit({
       title,
       description,
-      status,
+      // status: status, // Removed as it's not in CreateTaskRequest
       isSensitive,
+      createdDate: new Date().toISOString().split('T')[0] // Default for now
     });
     onClose();
   };
@@ -105,9 +106,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
             onChange={(e) => setStatus(e.target.value as TaskStatus)}
             disabled={isReadOnly}
           >
-            <option value="NOT_STARTED">진행 전</option>
+            <option value="TODO">진행 전</option>
             <option value="IN_PROGRESS">진행 중</option>
-            <option value="COMPLETED">완료</option>
+            <option value="DONE">완료</option>
           </Select>
         </div>
 

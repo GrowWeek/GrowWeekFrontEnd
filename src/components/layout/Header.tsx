@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { RotateCcw } from 'lucide-react';
-import { useTodoStore } from '@/features/todo/hooks/useTodoStore';
 
 export function Header() {
-  const resetState = useTodoStore((state) => state.resetState);
-
   const handleReset = () => {
     if (confirm('정말로 모든 데이터를 초기화하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
-      resetState();
+      // TODO: Implement server-side reset or clear local storage/cookies if needed
+      // For now, we just reload as we don't have a global reset API endpoint yet
+      // resetState(); 
+      localStorage.removeItem('grow-week-storage'); // Clear old local storage if any
       window.location.reload();
     }
   };

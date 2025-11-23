@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   DndContext, 
   DragOverlay, 
@@ -21,17 +21,19 @@ import { createPortal } from 'react-dom';
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Plus, Lock } from "lucide-react";
-import { useTodoStore } from '../hooks/useTodoStore';
+import { Plus, Lock, Loader2 } from "lucide-react";
+import { useTasks } from '../hooks/useTasks';
+import { useTaskMutations } from '../hooks/useTaskMutations';
 import { TaskModal } from './TaskModal';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
-import { Task, TaskStatus, CreateTaskInput } from '../types';
+import { Task, TaskStatus, CreateTaskRequest } from '../types';
+import { useQueryClient } from '@tanstack/react-query';
 
 const statusMap = {
-  NOT_STARTED: { label: '진행 전', bg: 'bg-gray-100 dark:bg-gray-800' },
+  TODO: { label: '진행 전', bg: 'bg-gray-100 dark:bg-gray-800' },
   IN_PROGRESS: { label: '진행 중', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  COMPLETED: { label: '완료', bg: 'bg-green-50 dark:bg-green-900/20' },
+  DONE: { label: '완료', bg: 'bg-green-50 dark:bg-green-900/20' },
 };
 
 const dropAnimation: DropAnimation = {
@@ -45,18 +47,20 @@ const dropAnimation: DropAnimation = {
 };
 
 export function KanbanBoard() {
-  const { tasks, currentWeekId, createTask, updateTask, initialize, isWeekLocked, setTasks } = useTodoStore();
+  // Data Fetching
+  const { data: tasks = [], isLoading, isError } = useTasks();
+  const { createTask, updateTask, updateStatus } = useTaskMutations();
+  const queryClient = useQueryClient();
+
+  // Local State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-
-  useEffect(() => {
-    initialize();
-  }, [initialize]);
-
-  const isLocked = isWeekLocked(currentWeekId);
   
-  // Use different sensors for mouse and touch to improve mobile UX (scroll vs drag)
+  // TODO: 주차 잠금 여부 (현재는 항상 false, 향후 Week API 연동 시 변경)
+  const isLocked = false;
+  
+  // Sensors
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
@@ -68,28 +72,48 @@ export function KanbanBoard() {
     })
   );
 
+  // Group Tasks by Status
   const tasksByStatus = useMemo(() => {
     const acc: Record<TaskStatus, Task[]> = {
-      NOT_STARTED: [],
+      TODO: [],
       IN_PROGRESS: [],
-      COMPLETED: [],
+      DONE: [],
     };
+    
     tasks.forEach((task) => {
-        if (acc[task.status]) {
-            acc[task.status].push(task);
+        // API 상태값과 프론트엔드 매핑 안전장치
+        const status = task.status as TaskStatus;
+        if (acc[status]) {
+            acc[status].push(task);
         }
     });
     return acc;
   }, [tasks]);
 
-  const handleCreateTask = (input: CreateTaskInput) => {
+  // Handlers
+  const handleCreateTask = (input: CreateTaskRequest) => {
     if (isLocked) return;
-    createTask(input);
+    createTask.mutate({
+      title: input.title,
+      description: input.description,
+      isSensitive: input.isSensitive || false,
+      createdDate: new Date().toISOString().split('T')[0],
+    }, {
+      onSuccess: () => setIsModalOpen(false)
+    });
   };
 
-  const handleUpdateTask = (input: CreateTaskInput) => {
+  const handleUpdateTask = (input: CreateTaskRequest) => {
     if (editingTask && !isLocked) {
-      updateTask(editingTask.id, input);
+      updateTask.mutate({
+        id: editingTask.id,
+        data: {
+          title: input.title,
+          description: input.description,
+        }
+      }, {
+        onSuccess: () => setIsModalOpen(false)
+      });
     }
   };
 
@@ -120,10 +144,10 @@ export function KanbanBoard() {
     const { active, over } = event;
     if (!over) return;
 
-    const activeId = active.id;
-    const overId = over.id;
+    const activeId = Number(active.id);
+    const overId = over.id; // string or number
 
-    if (activeId === overId) return;
+    if (activeId === Number(overId)) return;
 
     const isActiveTask = active.data.current?.type === 'Task';
     const isOverTask = over.data.current?.type === 'Task';
@@ -131,30 +155,11 @@ export function KanbanBoard() {
 
     if (!isActiveTask) return;
 
-    const activeTaskIndex = tasks.findIndex((t) => t.id === activeId);
-    if (activeTaskIndex === -1) return;
-
-    const activeTask = tasks[activeTaskIndex];
-
-    if (isOverTask) {
-       const overTaskIndex = tasks.findIndex((t) => t.id === overId);
-       const overTask = tasks[overTaskIndex];
-       
-       if (activeTask.status !== overTask.status) {
-         const newTasks = [...tasks];
-         newTasks[activeTaskIndex] = { ...newTasks[activeTaskIndex], status: overTask.status };
-         setTasks(newTasks);
-       }
-    }
-
-    if (isOverColumn) {
-       const overStatus = over.data.current?.status as TaskStatus;
-       if (activeTask.status !== overStatus) {
-          const newTasks = [...tasks];
-          newTasks[activeTaskIndex] = { ...newTasks[activeTaskIndex], status: overStatus };
-          setTasks(newTasks);
-       }
-    }
+    // Note: Optimistic updates for drag over are tricky with React Query's cache.
+    // We rely on simple state updates in DndContext for visual feedback, 
+    // but actual data mutation happens on DragEnd.
+    // If we want smooth "swap" animation during drag, we might need local state copy of tasks.
+    // For now, we trust the library's visual sorting, but we don't mutate data here.
   };
 
   const onDragEnd = (event: DragEndEvent) => {
@@ -164,8 +169,8 @@ export function KanbanBoard() {
     const { active, over } = event;
     if (!over) return;
 
-    const activeId = active.id as string;
-    const overId = over.id as string;
+    const activeId = Number(active.id);
+    const overId = over.id; // string or number
     
     const activeTask = tasks.find(t => t.id === activeId);
     if (!activeTask) return;
@@ -178,19 +183,36 @@ export function KanbanBoard() {
     if (isOverColumn) {
         newStatus = over.data.current?.status as TaskStatus;
     } else if (isOverTask) {
-        const overTask = tasks.find(t => t.id === overId);
+        const overTask = tasks.find(t => t.id === Number(overId));
         if (overTask) newStatus = overTask.status;
     }
 
     if (activeTask.status !== newStatus) {
-        updateTask(activeId, { status: newStatus });
+      updateStatus.mutate({ id: activeId, status: newStatus });
     }
   };
 
-  const handleTaskStatusChange = (taskId: string, newStatus: TaskStatus) => {
+  const handleTaskStatusChange = (taskId: number, newStatus: TaskStatus) => {
     if (isLocked) return;
-    updateTask(taskId, { status: newStatus });
+    updateStatus.mutate({ id: taskId, status: newStatus });
   };
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center gap-4">
+        <p className="text-red-500">데이터를 불러오는데 실패했습니다.</p>
+        <Button onClick={() => window.location.reload()}>새로고침</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col p-4 md:p-6">

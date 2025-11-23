@@ -7,7 +7,7 @@ import { Task, TaskStatus } from '../types';
 interface SortableTaskProps {
   task: Task;
   onClick: (task: Task) => void;
-  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onStatusChange: (taskId: number, newStatus: TaskStatus) => void;
   isReadOnly: boolean;
 }
 

@@ -7,7 +7,7 @@ import { Task, TaskStatus } from '../types';
 interface TaskCardProps {
   task: Task;
   onClick?: (task: Task) => void;
-  onStatusChange?: (taskId: string, newStatus: TaskStatus) => void;
+  onStatusChange?: (taskId: number, newStatus: TaskStatus) => void;
   isReadOnly?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -45,9 +45,9 @@ export function TaskCard({ task, onClick, onStatusChange, isReadOnly, className,
                         onChange={handleStatusChange}
                         className="appearance-none bg-gray-100 dark:bg-gray-700 text-xs rounded px-2 py-1 pr-6 border-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     >
-                        <option value="NOT_STARTED">진행 전</option>
+                        <option value="TODO">진행 전</option>
                         <option value="IN_PROGRESS">진행 중</option>
-                        <option value="COMPLETED">완료</option>
+                        <option value="DONE">완료</option>
                     </select>
                     <MoreHorizontal className="w-3 h-3 absolute right-1.5 top-1.5 text-gray-500 pointer-events-none" />
                 </div>

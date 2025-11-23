@@ -1,17 +1,17 @@
 'use client';
 
-import { useTodoStore } from "@/features/todo/hooks/useTodoStore";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function RetrospectiveDashboard() {
-  const { currentWeekId, weeks, completeReview } = useTodoStore();
   const router = useRouter();
 
-  const currentWeek = weeks[currentWeekId];
-  const isReviewCompleted = currentWeek?.isReviewCompleted;
+  // TODO: Fetch week status from API
+  // For now, assume review is not completed as we focus on Task API integration
+  const isReviewCompleted = false; 
+  const currentWeekId = 0; // Placeholder
 
   const handleStartReview = () => {
     // In a real app, this would navigate to the review flow wizard.
@@ -19,10 +19,10 @@ export function RetrospectiveDashboard() {
     
     // Simulating review completion:
     if (confirm("회고를 완료하시겠습니까? 완료하면 이번 주 할일 목록이 잠금(Lock) 처리됩니다.")) {
-        completeReview(currentWeekId);
+        // completeReview(currentWeekId); // TODO: Call API to complete review
         // Optionally redirect or show success message
-        alert("회고가 완료되었습니다. 할일 탭에서 잠금 상태를 확인해보세요.");
-        router.push("/"); // Go back to Kanban to see locked state
+        alert("회고 기능은 아직 API가 준비되지 않았습니다.");
+        // router.push("/"); 
     }
   };
 
