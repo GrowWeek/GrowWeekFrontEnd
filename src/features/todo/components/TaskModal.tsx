@@ -20,7 +20,7 @@ interface TaskModalProps {
 export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isReadOnly = false }: TaskModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<TaskStatus>('TODO');
+  const [status, setStatus] = useState<TaskStatus>('NOT_STARTED');
   const [isSensitive, setIsSensitive] = useState(false);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
       } else {
         setTitle('');
         setDescription('');
-        setStatus('TODO');
+        setStatus('NOT_STARTED');
         setIsSensitive(false);
       }
     }
@@ -106,9 +106,9 @@ export function TaskModal({ isOpen, onClose, onSubmit, initialData, mode, isRead
             onChange={(e) => setStatus(e.target.value as TaskStatus)}
             disabled={isReadOnly}
           >
-            <option value="TODO">진행 전</option>
+            <option value="NOT_STARTED">진행 전</option>
             <option value="IN_PROGRESS">진행 중</option>
-            <option value="DONE">완료</option>
+            <option value="COMPLETED">완료</option>
           </Select>
         </div>
 

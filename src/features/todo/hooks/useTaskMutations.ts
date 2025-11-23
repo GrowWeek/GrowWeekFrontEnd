@@ -41,10 +41,8 @@ export const useTaskMutations = () => {
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: ['tasks'] });
       
-      // Snapshot the previous value
       const previousTasks = queryClient.getQueryData<Task[]>(['tasks', 'current']);
 
-      // Optimistically update to the new value
       if (previousTasks) {
         queryClient.setQueryData<Task[]>(['tasks', 'current'], (old) => {
            if (!old) return [];
@@ -73,4 +71,3 @@ export const useTaskMutations = () => {
     updateStatus 
   };
 };
-

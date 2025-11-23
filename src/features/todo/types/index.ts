@@ -1,27 +1,28 @@
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+// 백엔드 실제 반환값에 맞게 Status 타입 업데이트
+export type TaskStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'; 
 
 export interface Task {
-  id: number;                // 백엔드 Long -> number
+  id: number;
   userId: number;
-  weekId: number;            // 백엔드 Long -> number
+  weekId: number;
   title: string;
   description?: string;
   status: TaskStatus;
   isSensitive: boolean;
-  originalTaskId?: number;   // 이월된 원본 ID
+  originalTaskId?: number;
   isCarriedOver: boolean;
   isDeleted: boolean;
   isLocked: boolean;
-  lockedAt?: string;         // ISO Date Time
-  createdAt: string;         // ISO Date Time
-  updatedAt: string;         // ISO Date Time
+  lockedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Week {
-  id: number;                // 백엔드 Week ID
-  weekNumber: number;        // 몇 주차인지 (예: 47)
-  startDate: string;         // YYYY-MM-DD
-  endDate: string;           // YYYY-MM-DD
+  id: number;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
   isReviewCompleted: boolean;
 }
 
@@ -29,8 +30,8 @@ export interface CreateTaskRequest {
   title: string;
   description?: string;
   isSensitive: boolean;
-  weekId?: number;           // 선택적
-  createdDate: string;       // YYYY-MM-DD
+  weekId?: number;
+  createdDate: string;
 }
 
 export interface UpdateTaskRequest {
@@ -42,7 +43,6 @@ export interface ChangeTaskStatusRequest {
   status: TaskStatus;
 }
 
-// API 공통 응답 타입
 export interface ApiResponse<T> {
   success: boolean;
   data: T;
